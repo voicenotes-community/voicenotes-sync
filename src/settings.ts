@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting, TextAreaComponent, TextComponent } from 'obsidian';
+import { App, Notice, PluginSettingTab, setIcon, Setting, TextAreaComponent } from 'obsidian';
 import VoiceNotesPlugin from './main';
 import { autoResizeTextArea } from './utils';
 import VoiceNotesApi from './api/voicenotes';
@@ -7,7 +7,6 @@ import { User, VoiceNotesPluginSettings } from './types';
 export class VoiceNotesSettingTab extends PluginSettingTab {
   plugin: VoiceNotesPlugin;
   vnApi: VoiceNotesApi;
-  password: string;
 
   constructor(app: App, plugin: VoiceNotesPlugin) {
     super(app, plugin);
@@ -19,88 +18,181 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    this.renderHeader(containerEl);
+
     if (!this.plugin.settings.token) {
       await this.renderLoginSection(containerEl);
     } else {
       this.vnApi.setToken(this.plugin.settings.token);
       const userInfo = await this.vnApi.getUserInfo();
       await this.renderUserSection(containerEl, userInfo);
+      await this.renderSyncSettings(containerEl);
+      await this.renderContentSettings(containerEl);
+      await this.renderTemplateSettings(containerEl);
+      await this.renderAdvancedSettings(containerEl);
     }
+  }
 
-    await this.renderSyncSettings(containerEl);
-    await this.renderContentSettings(containerEl);
-    await this.renderTemplateSettings(containerEl);
-    await this.renderAdvancedSettings(containerEl);
+  private renderHeader(containerEl: HTMLElement): void {
+    const header = containerEl.createDiv({
+      attr: { style: 'display:flex; align-items:center; gap:8px; margin-bottom:10px' },
+    });
+
+    header.createEl('h1', { text: 'Voicenotes Settings' });
+    header.createSpan({
+      text: `v${this.plugin.manifest.version}`,
+      cls: 'txt-muted',
+    });
   }
 
   private async renderLoginSection(containerEl: HTMLElement): Promise<void> {
-    new Setting(containerEl).setName('Username').addText((text) =>
-      text
-        .setPlaceholder('Email address')
-        .setValue(this.plugin.settings.username || '')
-        .onChange(this.createTextInputHandler('username'))
-    );
+    const wrapper = containerEl.createDiv();
 
-    new Setting(containerEl).setName('Password').addText((text) => {
-      text
-        .setPlaceholder('Password')
-        .setValue(this.plugin.settings.password || '')
-        .onChange(async (value) => {
-          this.password = value;
-          await this.plugin.saveSettings();
-        });
-      text.inputEl.type = 'password';
-      return text;
+    wrapper.createEl('h2', {
+      text: 'Connect your account',
+      attr: { style: 'margin-bottom: 4px;' },
     });
 
-    new Setting(containerEl).addButton((button) => button.setButtonText('Login').onClick(() => this.handleLogin()));
+    wrapper.createEl('p', {
+      text: 'Start syncing your voice notes by connecting your account using an authentication token.',
+      cls: 'txt-muted',
+      attr: { style: 'margin-bottom: 13px; margin-top: 0;' },
+    });
 
-    new Setting(containerEl).setName('Auth Token').addText((text) =>
-      text
-        .setPlaceholder('12345|abcdefghijklmnopqrstuvwxyz')
-        .setValue(this.plugin.settings.token || '')
-        .onChange(this.createTextInputHandler('token'))
-    );
+    const inputEl = wrapper.createEl('input', {
+      type: 'password',
+      placeholder: 'Enter your Voicenotes Auth Token',
+      cls: 'auth-input',
+    });
 
-    new Setting(containerEl).addButton((button) =>
-      button.setButtonText('Login with token').onClick(() => this.handleTokenLogin())
-    );
+    inputEl.addEventListener('input', async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      this.plugin.settings.token = target.value;
+      await this.plugin.saveSettings();
+    });
+
+    const btnWrapper = wrapper.createDiv({ cls: 'btn-wrapper' });
+
+    const button = btnWrapper.createEl('button', {
+      text: 'Connect',
+      cls: 'mod-cta auth-btn',
+    });
+
+    button.addEventListener('click', async () => await this.handleLogin());
+
+    const extButton = btnWrapper.createEl('button', {
+      cls: 'btn-secondary auth-btn external-btn',
+      text: 'Get your token',
+    });
+
+    extButton.addEventListener('click', () => {
+      window.open('https://voicenotes.com/app?obsidian=true#settings', '_blank');
+    });
+
+    const externalIcon = extButton.createDiv();
+    setIcon(externalIcon, 'external-link');
   }
 
   private async renderUserSection(containerEl: HTMLElement, userInfo: User): Promise<void> {
-    new Setting(containerEl).setName('Name').addText((text) => text.setPlaceholder(userInfo.name).setDisabled(true));
+    const userRow = containerEl.createDiv({
+      cls: 'user-row',
+    });
 
-    new Setting(containerEl).setName('Email').addText((text) => text.setPlaceholder(userInfo.email).setDisabled(true));
+    const userInline = userRow.createDiv({ attr: { style: 'display:flex;align-items:center;gap:10px' } });
 
-    new Setting(containerEl).addButton((button) => button.setButtonText('Logout').onClick(() => this.handleLogout()));
+    const initials =
+      (userInfo.name || '')
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || '?';
 
-    new Setting(containerEl)
-      .setName('Force Sync')
-      .setDesc(
-        "Manual synchronization -- Prefer using the quick sync option unless you're having issues with syncing. Full synchronization will sync all notes, not just the last ten but can be much slower."
-      )
-      .addButton((button) => button.setButtonText('Manual sync (quick)').onClick(() => this.handleQuickSync()))
-      .addButton((button) => button.setButtonText('Manual sync (full)').onClick(() => this.handleFullSync()));
+    userInline.createDiv({
+      text: initials,
+      cls: 'user-initials',
+    });
+
+    const txt = userInline.createDiv({ attr: { style: 'line-height:1' } });
+    txt.createEl('div', { text: `Signed in as ${userInfo.name}`, attr: { style: 'font-weight:600' } });
+    txt.createEl('div', {
+      text: `${userInfo.email}`,
+      cls: 'txt-muted',
+    });
+
+    const userActions = userRow.createDiv({ attr: { style: 'display:flex;align-items:center;gap:10px' } });
+
+    const syncBtn = userActions.createEl('button', {
+      cls: 'mod-cta sync-btn',
+      attr: {
+        title: 'Manually sync your voice notes now',
+      },
+    });
+
+    syncBtn.createEl('span', {
+      text: 'Sync Now',
+      cls: 'sync-btn-label',
+    });
+
+    const dotsContainer = syncBtn.createEl('span', {
+      cls: 'sync-dots',
+      attr: { style: 'display:none' },
+    });
+
+    dotsContainer.createEl('span', { cls: 'dot' });
+    dotsContainer.createEl('span', { cls: 'dot' });
+    dotsContainer.createEl('span', { cls: 'dot' });
+
+    syncBtn.addEventListener('click', async () => await this.handleSync());
+
+    const btn = userActions.createEl('button', {
+      text: 'Logout',
+      cls: 'btn-bordered',
+      attr: {
+        title: 'Logout from VoiceNotes',
+      },
+    });
+
+    btn.addEventListener('click', async () => await this.handleLogout());
   }
 
   private async renderSyncSettings(containerEl: HTMLElement): Promise<void> {
+    new Setting(containerEl).setName('Sync Settings').setHeading();
+
     new Setting(containerEl)
-      .setName('Automatic sync every')
-      .setDesc('Number of minutes between syncing with VoiceNotes.com servers (uncheck to sync manually)')
-      .addText((text) => {
-        text
-          .setDisabled(!this.plugin.settings.automaticSync)
-          .setPlaceholder('30')
-          .setValue(`${this.plugin.settings.syncTimeout}`)
-          .onChange(this.createValidatedNumberInput('syncTimeout', 1));
-        text.inputEl.type = 'number';
-        return text;
+      .setName('Automatic sync')
+      .setDesc('Enable automatic syncing of voice notes at regular intervals')
+      .addDropdown((dropdown) => {
+        const options: Record<string, string> = {
+          '60': 'Every 1 hours',
+          '360': 'Every 3 hours',
+          '720': 'Every 6 hours',
+          '1440': 'Every 12 hours',
+          '2880': 'Every 24 hours',
+        };
+
+        const current = String(this.plugin.settings.syncTimeout ?? 30);
+        if (!options[current]) {
+          options[current] = `${current} minutes`;
+        }
+
+        dropdown
+          .addOptions(options)
+          .setValue(current)
+          .onChange(async (value: string) => {
+            this.plugin.settings.syncTimeout = Number(value);
+            await this.plugin.saveSettings();
+          });
+
+        dropdown.setDisabled(!this.plugin.settings.automaticSync);
+
+        return dropdown;
       })
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.automaticSync).onChange(
           this.createToggleHandler('automaticSync', async () => {
             if (this.plugin.settings.automaticSync) {
-              await this.plugin.sync(false);
+              await this.plugin.sync();
             }
             await this.display();
           })
@@ -109,7 +201,7 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Sync directory')
-      .setDesc('Directory to sync voice notes')
+      .setDesc('Directory within your vault where notes will be synced')
       .addText((text) =>
         text
           .setPlaceholder('voicenotes')
@@ -132,6 +224,8 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
   }
 
   private async renderContentSettings(containerEl: HTMLElement): Promise<void> {
+    new Setting(containerEl).setName('Notes Settings').setHeading();
+
     new Setting(containerEl)
       .setName('Add a tag to todos')
       .setDesc('When syncing a note add an optional tag to the todo')
@@ -181,6 +275,8 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
   }
 
   private async renderTemplateSettings(containerEl: HTMLElement): Promise<void> {
+    new Setting(containerEl).setName('Notes Formatting').setHeading();
+
     new Setting(containerEl)
       .setName('Frontmatter Template')
       .setDesc(
@@ -226,22 +322,6 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
     };
   }
 
-  private createValidatedNumberInput(settingKey: keyof VoiceNotesPluginSettings, min: number) {
-    return async (value: string) => {
-      const numericValue = Number(value);
-      const inputElement = document.activeElement as HTMLInputElement;
-
-      if (isNaN(numericValue) || numericValue < min) {
-        inputElement.style.backgroundColor = 'red';
-        new Notice(`Please enter a number greater than or equal to ${min}`);
-      } else {
-        inputElement.style.backgroundColor = '';
-        (this.plugin.settings as any)[settingKey] = numericValue;
-        await this.plugin.saveSettings();
-      }
-    };
-  }
-
   private createToggleHandler(settingKey: keyof VoiceNotesPluginSettings, afterChange?: () => Promise<void>) {
     return async (value: boolean) => {
       (this.plugin.settings as any)[settingKey] = value;
@@ -274,56 +354,37 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
   }
 
   private async handleLogin(): Promise<void> {
-    this.plugin.settings.token = await this.vnApi.login({
-      username: this.plugin.settings.username,
-      password: this.password,
-    });
-
-    this.plugin.settings.password = null;
-    if (this.plugin.settings.token) {
-      new Notice('Login to voicenotes.com was successful');
-      await this.plugin.saveSettings();
-      this.plugin.setupAutoSync();
-      await this.display();
-    } else {
-      new Notice('Login to voicenotes.com was unsuccessful');
-    }
-  }
-
-  private async handleTokenLogin(): Promise<void> {
     this.vnApi.setToken(this.plugin.settings.token);
     const response = await this.vnApi.getUserInfo();
-    this.plugin.settings.password = null;
 
     if (response) {
-      new Notice('Login to voicenotes.com was successful');
       await this.plugin.saveSettings();
-      this.plugin.setupAutoSync();
       await this.display();
+      this.plugin.setupAutoSync();
+      new Notice('Logged in successfully');
     } else {
-      new Notice('Login to voicenotes.com was unsuccessful');
+      new Notice('Failed to log in with provided token. Please check and try again.');
     }
   }
 
   private async handleLogout(): Promise<void> {
-    new Notice('Logged out of voicenotes.com');
+    new Notice('Successfully logged out.');
     this.plugin.settings.token = null;
-    this.plugin.settings.password = null;
-    this.password = null;
     await this.plugin.saveSettings();
     await this.display();
   }
 
-  private async handleQuickSync(): Promise<void> {
-    new Notice('Performing manual synchronization of the last ten notes.');
+  private async handleSync(): Promise<void> {
+    this.plugin.syncedRecordingIds = [];
+    this.toggleSyncingState(true);
     await this.plugin.sync();
-    new Notice('Manual quick synchronization has completed.');
+    setTimeout(() => {
+      this.toggleSyncingState(false);
+    }, 500);
   }
 
-  private async handleFullSync(): Promise<void> {
-    new Notice('Performing manual synchronization of all notes.');
-    this.plugin.syncedRecordingIds = [];
-    await this.plugin.sync(true);
-    new Notice('Manual full synchronization has completed.');
+  private async toggleSyncingState(isSyncing: boolean = false): Promise<void> {
+    document.querySelector('.sync-btn-label')!.textContent = isSyncing ? 'Syncing' : 'Sync Now';
+    document.querySelector('.sync-dots').setAttribute('style', isSyncing ? 'display: inline-flex' : 'display:none');
   }
 }
