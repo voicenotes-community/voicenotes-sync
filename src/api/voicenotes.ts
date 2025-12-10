@@ -1,7 +1,6 @@
 import { DataAdapter, requestUrl, RequestUrlParam, RequestUrlResponse } from 'obsidian';
 import { User, VoiceNoteRecordings, VoiceNoteSignedUrl } from '../types';
-
-const VOICENOTES_API_URL = 'https://api.voicenotes.com/api';
+import { API_ROUTES, BASE_API_URL } from '@/constants';
 
 export default class VoiceNotesApi {
   private token?: string;
@@ -31,9 +30,10 @@ export default class VoiceNotesApi {
     if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
       return endpoint;
     }
+
     // Ensure endpoint starts with /
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${VOICENOTES_API_URL}${cleanEndpoint}`;
+    return `${BASE_API_URL}${cleanEndpoint}`;
   }
 
   /**
@@ -56,6 +56,7 @@ export default class VoiceNotesApi {
         headers: {
           ...options.headers,
           Authorization: `Bearer ${this.token}`,
+          'X-API-KEY': `${this.token}`,
         },
       });
     } catch (error: any) {
@@ -70,42 +71,16 @@ export default class VoiceNotesApi {
     }
   }
 
-  async login(options: { username?: string; password?: string }): Promise<string | null> {
-    if (!options.username || !options.password) {
-      return null;
-    }
-
-    console.log(`Logging in to VoiceNotes API`);
-
-    try {
-      const response = await requestUrl({
-        url: this.buildUrl('/auth/login'),
-        method: 'POST',
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: options.username,
-          password: options.password,
-        }),
-      });
-
-      if (response.status === 200 && response.json?.authorisation?.token) {
-        this.token = response.json.authorisation.token;
-        return this.token;
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-
-    return null;
-  }
-
   async getSignedUrl(recordingId: number): Promise<VoiceNoteSignedUrl | null> {
     if (!this.hasValidToken()) {
       return null;
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest(`/recordings/${recordingId}/signed-url`);
+      const data = await this.makeAuthenticatedRequest(
+        API_ROUTES.GET_SIGNED_URL.replace(':recordingId', String(recordingId))
+      );
+
       return data.json as VoiceNoteSignedUrl;
     } catch (error) {
       console.error('Failed to get signed URL:', error);
@@ -130,9 +105,12 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest(`/recordings/${recordingId}`, {
-        method: 'DELETE',
-      });
+      const data = await this.makeAuthenticatedRequest(
+        API_ROUTES.DELETE_RECORDING.replace(':recordingId', recordingId),
+        {
+          method: 'DELETE',
+        }
+      );
       return data.status === 200;
     } catch (error) {
       console.error('Failed to delete recording:', error);
@@ -161,7 +139,7 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest('/recordings');
+      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_RECORDINGS);
       return data.json as VoiceNoteRecordings;
     } catch (error) {
       console.error('Failed to get recordings:', error);
@@ -175,7 +153,7 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest('/auth/me');
+      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_USER);
       return data.json as User;
     } catch (error) {
       console.error('Failed to get user info:', error);
