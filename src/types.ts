@@ -20,6 +20,7 @@ export interface VoiceNotesPluginSettings {
   dateFormat: string;
   useCustomChangedAtProperty: boolean;
   customChangedAtProperty: string;
+  lastSyncedNoteUpdatedAt?: string;
 }
 
 export interface User {

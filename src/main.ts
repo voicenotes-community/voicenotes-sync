@@ -296,7 +296,10 @@ export default class VoiceNotesPlugin extends Plugin {
     try {
       this.syncedRecordingIds = await this.getSyncedRecordingIds();
 
-      this.vnApi = new VoiceNotesApi({ token: this.settings.token });
+      this.vnApi = new VoiceNotesApi({
+        token: this.settings.token,
+        lastSyncedNoteUpdatedAt: this.settings.lastSyncedNoteUpdatedAt,
+      });
 
       const voiceNotesDir = normalizePath(this.settings.syncDirectory);
       if (!(await this.app.vault.adapter.exists(voiceNotesDir))) {
@@ -325,6 +328,18 @@ export default class VoiceNotesPlugin extends Plugin {
       if (recordings) {
         for (const recording of recordings.data) {
           await this.processNote(recording, voiceNotesDir, false, '', unsyncedCount);
+        }
+
+        const latestTs = recordings.data
+          .map((r) => r.updated_at)
+          .filter(Boolean)
+          .map((s) => new Date(s).getTime())
+          .filter((t) => !Number.isNaN(t));
+
+        if (latestTs.length > 0) {
+          const maxTs = Math.max(...latestTs);
+          this.settings.lastSyncedNoteUpdatedAt = new Date(maxTs).toISOString();
+          await this.saveSettings();
         }
       }
 

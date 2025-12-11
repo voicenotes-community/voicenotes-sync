@@ -5,9 +5,18 @@ import { API_ROUTES, BASE_API_URL } from '@/constants';
 export default class VoiceNotesApi {
   private token?: string;
 
-  constructor(options: { token?: string } = {}) {
+  /**
+   * Optional timestamp of the last synced note's updated_at property
+   */
+  private lastSyncedNoteUpdatedAt?: string;
+
+  constructor(options: { token?: string; lastSyncedNoteUpdatedAt?: string } = {}) {
     if (options.token) {
       this.token = options.token;
+    }
+
+    if (options.lastSyncedNoteUpdatedAt) {
+      this.lastSyncedNoteUpdatedAt = options.lastSyncedNoteUpdatedAt;
     }
   }
 
@@ -137,7 +146,12 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_RECORDINGS);
+      const data = await this.makeAuthenticatedRequest(
+        API_ROUTES.GET_RECORDINGS +
+          (this.lastSyncedNoteUpdatedAt
+            ? `?last_synced_note_updated_at=${encodeURIComponent(this.lastSyncedNoteUpdatedAt)}`
+            : '')
+      );
       return data.json as VoiceNoteRecordings;
     } catch (error) {
       console.error('Failed to get recordings:', error);
