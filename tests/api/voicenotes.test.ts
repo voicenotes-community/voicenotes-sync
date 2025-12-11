@@ -1,14 +1,18 @@
 import { requestUrl, DataAdapter } from 'obsidian';
 import VoiceNotesApi from '../../src/api/voicenotes';
 import { User, VoiceNoteRecordings, VoiceNoteSignedUrl } from '../../src/types';
-import { BASE_API_URL } from '../../src/constants/api-routes';
+import { BASE_API_URL, API_ROUTES } from '../../src/constants/api-routes';
 
 // Mock obsidian module
 jest.mock('obsidian');
 
+// Mock global fetch
+global.fetch = jest.fn();
+
 describe('VoiceNotesApi', () => {
   let api: VoiceNotesApi;
   const mockRequestUrl = requestUrl as jest.MockedFunction<typeof requestUrl>;
+  const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -24,6 +28,12 @@ describe('VoiceNotesApi', () => {
     it('should initialize with a token', () => {
       const api = new VoiceNotesApi({ token: 'test-token' });
       expect(api['token']).toBe('test-token');
+    });
+
+    it('should initialize with lastSyncedNoteUpdatedAt', () => {
+      const api = new VoiceNotesApi({ token: 'test-token', lastSyncedNoteUpdatedAt: '2025-01-01T00:00:00Z' });
+      expect(api['token']).toBe('test-token');
+      expect(api['lastSyncedNoteUpdatedAt']).toBe('2025-01-01T00:00:00Z');
     });
 
     it('should set token via setToken method', () => {
@@ -71,38 +81,40 @@ describe('VoiceNotesApi', () => {
     });
 
     it('should add authorization header to requests', async () => {
-      mockRequestUrl.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: { data: 'test' },
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => ({ data: 'test' }),
+      } as Response);
 
       await api['makeAuthenticatedRequest']('/test');
 
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: `${BASE_API_URL}/test`,
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}/test`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
     });
 
     it('should throw error when no token is present', async () => {
       api.setToken(null);
 
-      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toThrow('No valid authentication token');
+      await expect(api['makeAuthenticatedRequest']('/user/info')).rejects.toThrow('No valid authentication token');
     });
 
     it('should clear token on 401 response', async () => {
-      mockRequestUrl.mockRejectedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
         status: 401,
-        message: 'Unauthorized',
-      });
+        json: async () => ({}),
+      } as Response);
 
-      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toMatchObject({
+      await expect(api['makeAuthenticatedRequest']('/user/info')).rejects.toMatchObject({
         status: 401,
         message: 'Authentication failed - token invalid or expired',
       });
@@ -110,11 +122,42 @@ describe('VoiceNotesApi', () => {
       expect(api['token']).toBeUndefined();
     });
 
-    it('should pass through other errors', async () => {
-      const error = new Error('Network error');
-      mockRequestUrl.mockRejectedValueOnce(error);
+    it('should handle 404 errors', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      } as Response);
 
-      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toThrow(error);
+      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toMatchObject({
+        status: 404,
+        message: 'Resource not found, Please try again later',
+      });
+    });
+
+    it('should handle 400 errors', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: 'Invalid request' }),
+      } as Response);
+
+      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toMatchObject({
+        status: 400,
+        message: 'Invalid request',
+      });
+    });
+
+    it('should handle other errors', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      } as Response);
+
+      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toMatchObject({
+        status: 500,
+        message: 'Something went wrong, Please try again later',
+      });
+
       expect(api['token']).toBe('valid-token'); // Token should not be cleared
     });
   });
@@ -142,37 +185,61 @@ describe('VoiceNotesApi', () => {
         links: { next: null },
       };
 
-      mockRequestUrl.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: mockRecordings,
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => mockRecordings,
+      } as Response);
 
       const result = await api.getRecordings();
 
       expect(result).toEqual(mockRecordings);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: `${BASE_API_URL}/recordings`,
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}${API_ROUTES.GET_RECORDINGS}`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
+    });
+
+    it('should include lastSyncedNoteUpdatedAt in query params when set', async () => {
+      const timestamp = '2025-01-01T00:00:00Z';
+      api = new VoiceNotesApi({ token: 'valid-token', lastSyncedNoteUpdatedAt: timestamp });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [], links: { next: null } }),
+      } as Response);
+
+      await api.getRecordings();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}${API_ROUTES.GET_RECORDINGS}?last_synced_note_updated_at=${encodeURIComponent(timestamp)}`,
+        expect.any(Object)
+      );
     });
 
     it('should return null when no token', async () => {
       const result = await api.getRecordings();
       expect(result).toBeNull();
-      expect(mockRequestUrl).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle errors and throw', async () => {
       api.setToken('valid-token');
-      mockRequestUrl.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      } as Response);
 
-      await expect(api.getRecordings()).rejects.toThrow('API Error');
+      await expect(api.getRecordings()).rejects.toMatchObject({
+        status: 500,
+      });
     });
   });
 
@@ -183,28 +250,29 @@ describe('VoiceNotesApi', () => {
         url: 'https://signed-url.example.com',
       };
 
-      mockRequestUrl.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: mockSignedUrl,
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => mockSignedUrl,
+      } as Response);
 
-      const result = await api.getSignedUrl(123);
+      const result = await api.getSignedUrl('123');
 
       expect(result).toEqual(mockSignedUrl);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: `${BASE_API_URL}/recordings/123/signed-url`,
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}/recordings/123/signed-url`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
     });
 
     it('should return null when no token', async () => {
-      const result = await api.getSignedUrl(123);
+      const result = await api.getSignedUrl('123');
       expect(result).toBeNull();
     });
   });
@@ -212,38 +280,30 @@ describe('VoiceNotesApi', () => {
   describe('deleteRecording', () => {
     it('should delete recording successfully', async () => {
       api.setToken('valid-token');
-      mockRequestUrl.mockResolvedValueOnce({
+      const mockResponse = { success: true };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: {},
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => mockResponse,
+      } as Response);
 
-      const result = await api.deleteRecording(123);
+      const result = await api.deleteRecording('123');
 
-      expect(result).toBe(true);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: `${BASE_API_URL}/recordings/123`,
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
-    });
-
-    it('should return false when deletion fails', async () => {
-      api.setToken('valid-token');
-      mockRequestUrl.mockRejectedValueOnce(new Error('Delete failed'));
-
-      const result = await api.deleteRecording(123);
-
-      expect(result).toBe(false);
+      expect(result).toEqual(mockResponse);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}/recordings/123`,
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
     });
 
     it('should return false when no token', async () => {
-      const result = await api.deleteRecording(123);
+      const result = await api.deleteRecording('123');
       expect(result).toBe(false);
     });
   });
@@ -257,32 +317,34 @@ describe('VoiceNotesApi', () => {
         photo_url: null,
       };
 
-      mockRequestUrl.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: mockUser,
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => mockUser,
+      } as Response);
 
       const result = await api.getUserInfo();
 
       expect(result).toEqual(mockUser);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: `${BASE_API_URL}/user/info`,
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_API_URL}${API_ROUTES.GET_USER}`,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
     });
 
     it('should return null on error (used for token validation)', async () => {
       api.setToken('invalid-token');
-      mockRequestUrl.mockRejectedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
         status: 401,
-        message: 'Unauthorized',
-      });
+        json: async () => ({}),
+      } as Response);
 
       const result = await api.getUserInfo();
 
@@ -335,29 +397,29 @@ describe('VoiceNotesApi', () => {
       api.setToken('valid-token');
       const paginationUrl = `${BASE_API_URL}/recordings?page=2`;
       const mockRecordings: VoiceNoteRecordings = {
-        data: [{ id: 2, title: 'Page 2 Recording' }],
+        data: [],
         links: { next: null },
-        json: {},
       };
 
-      mockRequestUrl.mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
         status: 200,
-        json: mockRecordings,
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
+        json: async () => mockRecordings,
+      } as Response);
 
       const result = await api.getRecordingsFromLink(paginationUrl);
 
       expect(result).toEqual(mockRecordings);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: paginationUrl,
-        headers: {
-          Authorization: `Bearer valid-token`,
-          'X-API-KEY': 'valid-token',
-        },
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        paginationUrl,
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            Authorization: `Bearer valid-token`,
+            'X-API-KEY': 'valid-token',
+          }),
+        })
+      );
     });
 
     it('should return null when no token', async () => {
