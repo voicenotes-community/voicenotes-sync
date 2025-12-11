@@ -378,6 +378,7 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
   private async handleLogout(): Promise<void> {
     new Notice('Successfully logged out.');
     await this.setSetting('token', null);
+    await this.setSetting('lastSyncedNoteUpdatedAt', null);
     await this.display();
   }
 
