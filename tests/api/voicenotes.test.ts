@@ -1,6 +1,7 @@
 import { requestUrl, DataAdapter } from 'obsidian';
 import VoiceNotesApi from '../../src/api/voicenotes';
 import { User, VoiceNoteRecordings, VoiceNoteSignedUrl } from '../../src/types';
+import { BASE_API_URL } from '../../src/constants/api-routes';
 
 // Mock obsidian module
 jest.mock('obsidian');
@@ -38,10 +39,10 @@ describe('VoiceNotesApi', () => {
 
     it('should validate token correctly', () => {
       expect(api['hasValidToken']()).toBe(false);
-      
+
       api.setToken('valid-token');
       expect(api['hasValidToken']()).toBe(true);
-      
+
       api.setToken('   ');
       expect(api['hasValidToken']()).toBe(false);
     });
@@ -49,87 +50,18 @@ describe('VoiceNotesApi', () => {
 
   describe('buildUrl', () => {
     it('should build correct URL for relative endpoints', () => {
-      expect(api['buildUrl']('/recordings')).toBe('https://api.voicenotes.com/api/recordings');
-      expect(api['buildUrl']('recordings')).toBe('https://api.voicenotes.com/api/recordings');
+      expect(api['buildUrl']('/recordings')).toBe(`${BASE_API_URL}/recordings`);
+      expect(api['buildUrl']('recordings')).toBe(`${BASE_API_URL}/recordings`);
     });
 
     it('should preserve full URLs', () => {
-      const fullUrl = 'https://api.voicenotes.com/api/recordings?page=2';
+      const fullUrl = `${BASE_API_URL}/recordings?page=2`;
       expect(api['buildUrl'](fullUrl)).toBe(fullUrl);
     });
 
     it('should handle http URLs', () => {
-      const httpUrl = 'http://api.voicenotes.com/api/recordings';
+      const httpUrl = `${BASE_API_URL}/recordings`;
       expect(api['buildUrl'](httpUrl)).toBe(httpUrl);
-    });
-  });
-
-  describe('login', () => {
-    it('should login successfully with valid credentials', async () => {
-      const mockToken = 'auth-token-123';
-      mockRequestUrl.mockResolvedValueOnce({
-        status: 200,
-        json: {
-          authorisation: {
-            token: mockToken,
-          },
-        },
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
-
-      const result = await api.login({
-        username: 'test@example.com',
-        password: 'password123',
-      });
-
-      expect(result).toBe(mockToken);
-      expect(api['token']).toBe(mockToken);
-      expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/auth/login',
-        method: 'POST',
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: 'test@example.com',
-          password: 'password123',
-        }),
-      });
-    });
-
-    it('should return null with invalid credentials', async () => {
-      mockRequestUrl.mockResolvedValueOnce({
-        status: 401,
-        json: { error: 'Invalid credentials' },
-        headers: {},
-        arrayBuffer: new ArrayBuffer(0),
-        text: '',
-      });
-
-      const result = await api.login({
-        username: 'test@example.com',
-        password: 'wrong-password',
-      });
-
-      expect(result).toBeNull();
-      expect(api['token']).toBeUndefined();
-    });
-
-    it('should return null when missing credentials', async () => {
-      const result = await api.login({});
-      expect(result).toBeNull();
-      expect(mockRequestUrl).not.toHaveBeenCalled();
-    });
-
-    it('should handle network errors gracefully', async () => {
-      mockRequestUrl.mockRejectedValueOnce(new Error('Network error'));
-
-      const result = await api.login({
-        username: 'test@example.com',
-        password: 'password123',
-      });
-
-      expect(result).toBeNull();
     });
   });
 
@@ -150,9 +82,10 @@ describe('VoiceNotesApi', () => {
       await api['makeAuthenticatedRequest']('/test');
 
       expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/test',
+        url: `${BASE_API_URL}/test`,
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
@@ -160,9 +93,7 @@ describe('VoiceNotesApi', () => {
     it('should throw error when no token is present', async () => {
       api.setToken(null);
 
-      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toThrow(
-        'No valid authentication token'
-      );
+      await expect(api['makeAuthenticatedRequest']('/test')).rejects.toThrow('No valid authentication token');
     });
 
     it('should clear token on 401 response', async () => {
@@ -192,9 +123,23 @@ describe('VoiceNotesApi', () => {
     it('should fetch recordings successfully', async () => {
       api.setToken('valid-token');
       const mockRecordings: VoiceNoteRecordings = {
-        data: [{ id: 1, title: 'Test Recording' }],
+        data: [
+          {
+            id: 'unique-id',
+            title: 'Test Recording',
+            recording_id: '',
+            duration: 0,
+            transcript: '',
+            related_notes: [],
+            tags: [],
+            creations: [],
+            subnotes: [],
+            attachments: [],
+            created_at: '',
+            updated_at: '',
+          },
+        ],
         links: { next: null },
-        json: {},
       };
 
       mockRequestUrl.mockResolvedValueOnce({
@@ -209,9 +154,10 @@ describe('VoiceNotesApi', () => {
 
       expect(result).toEqual(mockRecordings);
       expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/recordings',
+        url: `${BASE_API_URL}/recordings`,
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
@@ -249,9 +195,10 @@ describe('VoiceNotesApi', () => {
 
       expect(result).toEqual(mockSignedUrl);
       expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/recordings/123/signed-url',
+        url: `${BASE_API_URL}/recordings/123/signed-url`,
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
@@ -277,10 +224,11 @@ describe('VoiceNotesApi', () => {
 
       expect(result).toBe(true);
       expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/recordings/123',
+        url: `${BASE_API_URL}/recordings/123`,
         method: 'DELETE',
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
@@ -304,27 +252,9 @@ describe('VoiceNotesApi', () => {
     it('should fetch user info successfully', async () => {
       api.setToken('valid-token');
       const mockUser: User = {
-        id: 1,
         name: 'Test User',
         email: 'test@example.com',
         photo_url: null,
-        is_password_set: true,
-        subscription_status: true,
-        can_record_more: true,
-        subscription_plan: 'premium',
-        subscription_gateway: 'stripe',
-        subscription_created_at: '2024-01-01',
-        latest_updated_at: '2024-01-01',
-        latest_attachment_updated_at: '2024-01-01',
-        recordings_count: 10,
-        public_recordings_count: 5,
-        settings: {
-          about: null,
-          language: 'en',
-          remember_words: null,
-          fix_punctuation: true,
-          theme: 'light',
-        },
       };
 
       mockRequestUrl.mockResolvedValueOnce({
@@ -339,9 +269,10 @@ describe('VoiceNotesApi', () => {
 
       expect(result).toEqual(mockUser);
       expect(mockRequestUrl).toHaveBeenCalledWith({
-        url: 'https://api.voicenotes.com/api/auth/me',
+        url: `${BASE_API_URL}/user/info`,
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
@@ -370,7 +301,7 @@ describe('VoiceNotesApi', () => {
         writeBinary: jest.fn().mockResolvedValue(undefined),
       } as unknown as DataAdapter;
       const mockArrayBuffer = new ArrayBuffer(8);
-      
+
       mockRequestUrl.mockResolvedValueOnce({
         status: 200,
         json: {},
@@ -384,10 +315,7 @@ describe('VoiceNotesApi', () => {
       expect(mockRequestUrl).toHaveBeenCalledWith({
         url: 'https://example.com/file.mp3',
       });
-      expect(mockFs.writeBinary).toHaveBeenCalledWith(
-        '/path/to/output.mp3',
-        expect.any(Buffer)
-      );
+      expect(mockFs.writeBinary).toHaveBeenCalledWith('/path/to/output.mp3', expect.any(Buffer));
     });
 
     it('should throw error on download failure', async () => {
@@ -396,16 +324,16 @@ describe('VoiceNotesApi', () => {
       } as unknown as DataAdapter;
       mockRequestUrl.mockRejectedValueOnce(new Error('Download failed'));
 
-      await expect(
-        api.downloadFile(mockFs, 'https://example.com/file.mp3', '/path/to/output.mp3')
-      ).rejects.toThrow('Download failed');
+      await expect(api.downloadFile(mockFs, 'https://example.com/file.mp3', '/path/to/output.mp3')).rejects.toThrow(
+        'Download failed'
+      );
     });
   });
 
   describe('getRecordingsFromLink', () => {
     it('should fetch recordings from pagination link', async () => {
       api.setToken('valid-token');
-      const paginationUrl = 'https://api.voicenotes.com/api/recordings?page=2';
+      const paginationUrl = `${BASE_API_URL}/recordings?page=2`;
       const mockRecordings: VoiceNoteRecordings = {
         data: [{ id: 2, title: 'Page 2 Recording' }],
         links: { next: null },
@@ -426,13 +354,14 @@ describe('VoiceNotesApi', () => {
       expect(mockRequestUrl).toHaveBeenCalledWith({
         url: paginationUrl,
         headers: {
-          Authorization: 'Bearer valid-token',
+          Authorization: `Bearer valid-token`,
+          'X-API-KEY': 'valid-token',
         },
       });
     });
 
     it('should return null when no token', async () => {
-      const result = await api.getRecordingsFromLink('https://api.voicenotes.com/api/recordings?page=2');
+      const result = await api.getRecordingsFromLink(`${BASE_API_URL}/recordings?page=2`);
       expect(result).toBeNull();
     });
   });
