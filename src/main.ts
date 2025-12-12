@@ -14,7 +14,7 @@ export default class VoiceNotesPlugin extends Plugin {
   settings: VoiceNotesPluginSettings;
   vnApi: VoiceNotesApi;
   fs: DataAdapter;
-  syncedRecordingIds: string[];
+  syncedRecording: Pick<VoiceNote, 'recording_id' | 'updated_at'>[] = [];
   syncIntervalId: NodeJS.Timeout | null = null;
 
   constructor(app: App, manifest: PluginManifest) {
@@ -33,9 +33,13 @@ export default class VoiceNotesPlugin extends Plugin {
     registerCommands(this);
 
     this.registerEvent(
-      this.app.metadataCache.on('deleted', (deletedFile, prevCache) => {
+      this.app.metadataCache.on('deleted', async (deletedFile, prevCache) => {
         if (prevCache.frontmatter?.recording_id) {
-          this.syncedRecordingIds.remove(prevCache.frontmatter?.recording_id);
+          this.syncedRecording = this.syncedRecording.filter(
+            (r) => r.recording_id !== prevCache.frontmatter?.recording_id
+          );
+          this.settings.lastSyncedNoteUpdatedAt = null;
+          await this.saveSettings();
         }
       })
     );
@@ -47,7 +51,7 @@ export default class VoiceNotesPlugin extends Plugin {
   }
 
   onunload() {
-    this.syncedRecordingIds = [];
+    this.syncedRecording = [];
     this.clearAutoSync();
   }
 
@@ -79,10 +83,6 @@ export default class VoiceNotesPlugin extends Plugin {
     }
   }
 
-  async getRecordingIdFromFile(file: TFile): Promise<string | undefined> {
-    return this.app.metadataCache.getFileCache(file)?.frontmatter?.['recording_id'];
-  }
-
   sanitizedTitle(title: string, created_at: string): string {
     const date = formatDate(created_at, this.settings.filenameDateFormat);
     const generatedTitle = this.settings.filenameTemplate.replace('{{date}}', date).replace('{{title}}', title);
@@ -90,16 +90,26 @@ export default class VoiceNotesPlugin extends Plugin {
   }
 
   /**
-   * Return the recording IDs that we've already synced
+   * Return the recordings that we've already synced
    */
-  async getSyncedRecordingIds(): Promise<string[]> {
+  async getSyncedRecordings(): Promise<Pick<VoiceNote, 'recording_id' | 'updated_at'>[]> {
     const { vault } = this.app;
 
     const markdownFiles = vault.getMarkdownFiles().filter((file) => file.path.startsWith(this.settings.syncDirectory));
 
-    return (await Promise.all(markdownFiles.map(async (file) => this.getRecordingIdFromFile(file)))).filter(
-      (recordingId) => recordingId !== undefined
+    const recordings = await Promise.all(
+      markdownFiles.map(async (file) => {
+        const cache = this.app.metadataCache.getFileCache(file);
+        const recording_id = cache?.frontmatter?.['recording_id'];
+        const updated_at = cache?.frontmatter?.['updated_at'];
+        if (recording_id) {
+          return { recording_id, updated_at };
+        }
+        return null;
+      })
     );
+
+    return recordings.filter((r): r is Pick<VoiceNote, 'recording_id' | 'updated_at'> => r !== null);
   }
 
   async processNote(
@@ -261,8 +271,15 @@ export default class VoiceNotesPlugin extends Plugin {
           await this.app.vault.create(recordingPath, note);
         }
 
-        if (!this.syncedRecordingIds.includes(recording.recording_id)) {
-          this.syncedRecordingIds.push(recording.recording_id);
+        // Track synced recording
+        const existingIndex = this.syncedRecording.findIndex((r) => r.recording_id === recording.recording_id);
+        if (existingIndex !== -1) {
+          this.syncedRecording[existingIndex].updated_at = recording.updated_at;
+        } else {
+          this.syncedRecording.push({
+            recording_id: recording.recording_id,
+            updated_at: recording.updated_at,
+          });
         }
 
         if (this.settings.deleteSynced && this.settings.reallyDeleteSynced) {
@@ -294,7 +311,7 @@ export default class VoiceNotesPlugin extends Plugin {
 
   async sync() {
     try {
-      this.syncedRecordingIds = await this.getSyncedRecordingIds();
+      this.syncedRecording = await this.getSyncedRecordings();
 
       this.vnApi = new VoiceNotesApi({
         token: this.settings.token,

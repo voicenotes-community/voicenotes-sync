@@ -383,7 +383,7 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
   }
 
   private async handleSync(): Promise<void> {
-    this.plugin.syncedRecordingIds = [];
+    this.plugin.syncedRecording = [];
     await this.toggleSyncingState(true);
     await this.plugin.sync();
     // ensure UI toggled off after sync completes
