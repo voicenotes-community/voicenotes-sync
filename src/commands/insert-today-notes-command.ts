@@ -1,6 +1,6 @@
 import { Editor, Notice, TFile } from 'obsidian';
 import VoiceNotesPlugin from '../main';
-import { isToday } from '@/utils';
+import { DateTimeHelper } from '@/helpers';
 
 export function registerInsertTodayNotesCommand(plugin: VoiceNotesPlugin) {
   plugin.addCommand({
@@ -39,7 +39,7 @@ export function registerInsertTodayNotesCommand(plugin: VoiceNotesPlugin) {
   };
 
   const isRecordingFromToday = async (file: TFile): Promise<boolean> => {
-    return isToday(
+    return DateTimeHelper.isToday(
       await plugin.app.metadataCache.getFileCache(file)?.frontmatter?.[
         plugin.settings.useCustomChangedAtProperty ? plugin.settings.customChangedAtProperty : 'created_at'
       ]

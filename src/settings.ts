@@ -1,8 +1,8 @@
 import { App, Notice, PluginSettingTab, setIcon, Setting, TextAreaComponent } from 'obsidian';
 import VoiceNotesPlugin from './main';
-import { autoResizeTextArea } from './utils';
 import VoiceNotesApi from './api/voicenotes';
 import { User, VoiceNotesPluginSettings } from './types';
+import { AppHelper } from './helpers';
 
 export class VoiceNotesSettingTab extends PluginSettingTab {
   plugin: VoiceNotesPlugin;
@@ -348,8 +348,8 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
 
     text.setPlaceholder(current).setValue(current).onChange(this.createTextInputHandler(settingKey));
     text.inputEl.classList.add('autoresize');
-    autoResizeTextArea(text.inputEl);
-    text.inputEl.addEventListener('input', () => autoResizeTextArea(text.inputEl));
+    AppHelper.autoResizeTextArea(text.inputEl);
+    text.inputEl.addEventListener('input', () => AppHelper.autoResizeTextArea(text.inputEl));
     containerEl.appendChild(text.inputEl);
 
     return text;
