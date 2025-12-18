@@ -341,12 +341,12 @@ export default class VoiceNotesPlugin extends Plugin {
       const unsyncedCount = { count: 0 };
 
       if (recordings.links.next) {
-        let nextPage = recordings.links.next;
+        let nextPage = recordings.links.next.replace('http://', 'https://');
 
         do {
           const moreRecordings = await this.vnApi.getRecordingsFromLink(nextPage);
           recordings.data.push(...moreRecordings.data);
-          nextPage = moreRecordings.links.next;
+          nextPage = moreRecordings.links.next?.replace('http://', 'https://') || null;
         } while (nextPage);
       }
 
