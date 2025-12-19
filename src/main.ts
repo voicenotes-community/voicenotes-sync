@@ -47,7 +47,9 @@ export default class VoiceNotesPlugin extends Plugin {
             updated_at: prevCache.frontmatter?.updated_at,
           });
 
-          this.settings.lastSyncedNoteUpdatedAt = RecordingUtility.getLatestNote(this.syncedRecording)?.updated_at;
+          this.settings.lastSyncedNoteUpdatedAt = this.syncedRecording.length > 0
+            ? RecordingUtility.getLatestNote(this.syncedRecording)?.updated_at
+            : null;
           await this.saveSettings();
         }
       })
@@ -341,12 +343,12 @@ export default class VoiceNotesPlugin extends Plugin {
       const unsyncedCount = { count: 0 };
 
       if (recordings.links.next) {
-        let nextPage = recordings.links.next.replace('http://', 'https://');
+        let nextPage = recordings.links.next;
 
         do {
           const moreRecordings = await this.vnApi.getRecordingsFromLink(nextPage);
           recordings.data.push(...moreRecordings.data);
-          nextPage = moreRecordings.links.next?.replace('http://', 'https://') || null;
+          nextPage = moreRecordings.links.next;
         } while (nextPage);
       }
 

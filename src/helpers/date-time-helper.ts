@@ -2,13 +2,13 @@ import { moment } from 'obsidian';
 
 export class DateTimeHelper {
   static isToday(date: string): boolean {
-    // @ts-expect-error" - moment is callable despite TypeScript thinking otherwise
+    // @ts-expect-error - moment is callable despite TypeScript thinking otherwise
     return moment(date).isSame(moment(), 'day');
   }
 
   static formatDate(date: string, dateFormat: string): string {
     try {
-      // @ts-expect-error" - moment is callable despite TypeScript thinking otherwise
+      // @ts-expect-error - moment is callable despite TypeScript thinking otherwise
       return moment(date).format(dateFormat);
     } catch (error) {
       console.error('Error formatting date:', error);
