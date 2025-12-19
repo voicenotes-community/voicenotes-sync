@@ -12,9 +12,9 @@ export class AppConfig {
       todoTag: '',
       filenameDateFormat: 'YYYY-MM-DD',
       frontmatterTemplate: `duration: {{duration}}
-        created_at: {{created_at}}
-        updated_at: {{updated_at}}
-        {{tags}}`,
+created_at: {{created_at}}
+updated_at: {{updated_at}}
+{{tags}}`,
       noteTemplate: `# {{ title }}
         
         Date: {{ date }}

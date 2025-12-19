@@ -17,7 +17,7 @@ export function registerDeleteRemoteNoteCommand(plugin: VoiceNotesPlugin) {
         if (cache && cache.frontmatter) {
           const frontmatter = cache.frontmatter;
 
-          const confirmDelete = confirm(`Are you sure you want to delete "${frontmatter.title}"?`);
+          const confirmDelete = confirm(`Are you sure you want to delete this note from Voicenotes?`);
           if (confirmDelete) {
             try {
               await plugin.vnApi.deleteRecording(frontmatter.recording_id);
