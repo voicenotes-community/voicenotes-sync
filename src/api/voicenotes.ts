@@ -1,14 +1,34 @@
-import { DataAdapter, requestUrl, RequestUrlParam, RequestUrlResponse } from 'obsidian';
-import { User, VoiceNoteRecordings, VoiceNoteSignedUrl } from '../types';
+import { DataAdapter, Notice, requestUrl, RequestUrlResponse } from 'obsidian';
+import { User, VoiceNote, VoiceNoteRecordings, VoiceNoteSignedUrl } from '../types';
+import { API_ROUTES, BASE_API_URL } from '@/constants';
 
-const VOICENOTES_API_URL = 'https://api.voicenotes.com/api';
+type VoiceNotesApiOptions = {
+  token?: string;
+  lastSyncedNoteUpdatedAt?: string;
+  deletedLocalRecordings?: Pick<VoiceNote, 'recording_id' | 'updated_at'>[];
+};
 
 export default class VoiceNotesApi {
   private token?: string;
 
-  constructor(options: { token?: string } = {}) {
+  /**
+   * Optional timestamp of the last synced note's updated_at property
+   */
+  private lastSyncedNoteUpdatedAt?: string;
+
+  private deletedLocalRecordings: Pick<VoiceNote, 'recording_id' | 'updated_at'>[] = [];
+
+  constructor(options: VoiceNotesApiOptions = {}) {
     if (options.token) {
       this.token = options.token;
+    }
+
+    if (options.lastSyncedNoteUpdatedAt) {
+      this.lastSyncedNoteUpdatedAt = options.lastSyncedNoteUpdatedAt;
+    }
+
+    if (options.deletedLocalRecordings) {
+      this.deletedLocalRecordings = options.deletedLocalRecordings;
     }
   }
 
@@ -31,82 +51,79 @@ export default class VoiceNotesApi {
     if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
       return endpoint;
     }
+
     // Ensure endpoint starts with /
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${VOICENOTES_API_URL}${cleanEndpoint}`;
+    return `${BASE_API_URL}${cleanEndpoint}`;
   }
 
   /**
    * Makes an authenticated request with consistent error handling
    */
-  private async makeAuthenticatedRequest(
-    endpoint: string,
-    options: Partial<RequestUrlParam> = {}
-  ): Promise<RequestUrlResponse> {
+  private async makeAuthenticatedRequest(endpoint: string, options: Partial<RequestInit> = {}): Promise<any> {
     if (!this.hasValidToken()) {
       throw new Error('No valid authentication token');
     }
 
     const url = this.buildUrl(endpoint);
+    const headers = {
+      ...options.headers,
+      Authorization: `Bearer ${this.token}`,
+      'X-API-KEY': `${this.token}`,
+    };
 
-    try {
-      return await requestUrl({
-        url,
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
-    } catch (error: any) {
-      if (error.status === 401) {
-        this.token = undefined;
-        throw {
-          ...error,
-          message: 'Authentication failed - token invalid or expired',
-        };
-      }
-      throw error;
+    const fetchOptions: RequestInit = {
+      method: options.method || 'GET',
+      headers,
+    };
+
+    const res = await fetch(url, fetchOptions);
+
+    if (res.ok) {
+      return await res.json();
     }
+
+    if (res.status === 401) {
+      this.token = undefined;
+      throw {
+        status: res.status,
+        message: 'Authentication failed - token invalid or expired',
+      };
+    }
+
+    if (res.status === 404) {
+      throw {
+        status: res.status,
+        message: 'Resource not found, Please try again later',
+      };
+    }
+
+    if (res.status === 400) {
+      const errorData = await res.json();
+      const message = errorData.message || 'Bad Request';
+      new Notice(message || 'Bad Request');
+
+      throw {
+        status: res.status,
+        message: message || 'Bad Request',
+      };
+    }
+
+    throw {
+      status: res.status,
+      message: 'Something went wrong, Please try again later',
+    };
   }
 
-  async login(options: { username?: string; password?: string }): Promise<string | null> {
-    if (!options.username || !options.password) {
-      return null;
-    }
-
-    console.log(`Logging in to VoiceNotes API`);
-
-    try {
-      const response = await requestUrl({
-        url: this.buildUrl('/auth/login'),
-        method: 'POST',
-        contentType: 'application/json',
-        body: JSON.stringify({
-          email: options.username,
-          password: options.password,
-        }),
-      });
-
-      if (response.status === 200 && response.json?.authorisation?.token) {
-        this.token = response.json.authorisation.token;
-        return this.token;
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-
-    return null;
-  }
-
-  async getSignedUrl(recordingId: number): Promise<VoiceNoteSignedUrl | null> {
+  async getSignedUrl(recordingId: string): Promise<VoiceNoteSignedUrl | null> {
     if (!this.hasValidToken()) {
       return null;
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest(`/recordings/${recordingId}/signed-url`);
-      return data.json as VoiceNoteSignedUrl;
+      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_SIGNED_URL.replace(':recordingId', recordingId));
+
+      return data as VoiceNoteSignedUrl;
     } catch (error) {
       console.error('Failed to get signed URL:', error);
       throw error;
@@ -124,20 +141,19 @@ export default class VoiceNotesApi {
     }
   }
 
-  async deleteRecording(recordingId: string): Promise<boolean> {
+  async deleteRecording(recordingId: string): Promise<RequestUrlResponse | boolean> {
     if (!this.hasValidToken()) {
       return false;
     }
 
-    try {
-      const data = await this.makeAuthenticatedRequest(`/recordings/${recordingId}`, {
+    const response = await this.makeAuthenticatedRequest(
+      API_ROUTES.DELETE_RECORDING.replace(':recordingId', recordingId),
+      {
         method: 'DELETE',
-      });
-      return data.status === 200;
-    } catch (error) {
-      console.error('Failed to delete recording:', error);
-      return false;
-    }
+      }
+    );
+
+    return response;
   }
 
   async getRecordingsFromLink(link: string): Promise<VoiceNoteRecordings | null> {
@@ -146,9 +162,15 @@ export default class VoiceNotesApi {
     }
 
     try {
+      const options: Partial<RequestInit> = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
       // This uses the full link URL (for pagination)
-      const data = await this.makeAuthenticatedRequest(link);
-      return data.json as VoiceNoteRecordings;
+      const data = await this.makeAuthenticatedRequest(link, options);
+      return data as VoiceNoteRecordings;
     } catch (error) {
       console.error('Failed to get recordings from link:', error);
       throw error;
@@ -161,8 +183,20 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest('/recordings');
-      return data.json as VoiceNoteRecordings;
+      const options: Partial<RequestInit> = {
+        body: JSON.stringify({
+          obsidian_deleted_recording_ids: this.deletedLocalRecordings.map((r) => r.recording_id),
+          last_synced_note_updated_at: this.lastSyncedNoteUpdatedAt,
+        }),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_RECORDINGS, options);
+
+      return data as VoiceNoteRecordings;
     } catch (error) {
       console.error('Failed to get recordings:', error);
       throw error;
@@ -175,8 +209,8 @@ export default class VoiceNotesApi {
     }
 
     try {
-      const data = await this.makeAuthenticatedRequest('/auth/me');
-      return data.json as User;
+      const data = await this.makeAuthenticatedRequest(API_ROUTES.GET_USER);
+      return data as User;
     } catch (error) {
       console.error('Failed to get user info:', error);
       // Don't throw here as this is used to check if token is valid

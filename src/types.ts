@@ -4,8 +4,6 @@
 
 export interface VoiceNotesPluginSettings {
   token?: string;
-  username?: string;
-  password?: string;
   automaticSync: boolean;
   syncTimeout?: number;
   downloadAudio?: boolean;
@@ -22,32 +20,13 @@ export interface VoiceNotesPluginSettings {
   dateFormat: string;
   useCustomChangedAtProperty: boolean;
   customChangedAtProperty: string;
-}
-
-export interface UserSettings {
-  about: string | null;
-  language: string | null;
-  remember_words: string | null;
-  fix_punctuation: boolean;
-  theme: string;
+  lastSyncedNoteUpdatedAt?: string;
 }
 
 export interface User {
-  id: number;
   name: string;
   email: string;
   photo_url: string | null;
-  is_password_set: boolean;
-  subscription_status: boolean;
-  can_record_more: boolean;
-  subscription_plan: string;
-  subscription_gateway: string;
-  subscription_created_at: string;
-  latest_updated_at: string;
-  latest_attachment_updated_at: string;
-  recordings_count: number;
-  public_recordings_count: number;
-  settings: UserSettings;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -58,10 +37,39 @@ export interface VoiceNoteSignedUrl {
   url: string;
 }
 
+export interface VoiceNoteAttachment {
+  id: string;
+  type: number;
+  description: string;
+  url: string;
+  created_at: string;
+}
+
+export interface VoiceNoteCreation {
+  id: string;
+  type: string;
+  content: { data: string[] };
+  markdown_content: string;
+}
+
+export interface VoiceNote {
+  id: string;
+  recording_id: string;
+  title: string;
+  duration: number;
+  transcript: string;
+  related_notes: VoiceNote[];
+  tags: { name: string }[];
+  creations: VoiceNoteCreation[];
+  subnotes: VoiceNote[];
+  attachments: VoiceNoteAttachment[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface VoiceNoteRecordings {
-  data: any[];
+  data: VoiceNote[];
   links: {
     next?: string;
   };
-  json: any;
 }

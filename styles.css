@@ -1,8 +1,128 @@
 textarea.autoresize {
-    display: block;
-    width: 100%;
-    resize: none;
-    overflow: hidden;
-    min-height: 100px;
-    box-sizing: border-box;
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  min-height: 100px;
+  box-sizing: border-box;
+}
+
+.txt-muted {
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.btn-secondary {
+  color: var(--text-color);
+  background-color: var(--interactive-normal);
+  box-shadow: var(--input-shadow);
+}
+
+.btn-bordered {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--interactive-accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.btn-wrapper {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.auth-input {
+  width: 400px;
+  margin-bottom: 4px;
+}
+
+.auth-btn {
+  display: block;
+  padding: 16px 24px;
+  text-align: center;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.external-btn {
+  display: flex;
+  gap: 7px;
+}
+
+.lucide-external-link {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--background-primary);
+}
+
+.user-initials {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--interactive-accent);
+  color: var(--text-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.sync-btn {
+  padding: 6px 10px;
+  cursor: pointer;
+  margin-right: 10px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sync-dots {
+  gap: 4px;
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sync-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  transform: translateY(0);
+  animation: voicenotes-dot 900ms infinite ease-in-out;
+}
+
+.sync-dots .dot:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.sync-dots .dot:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.sync-dots .dot:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes voicenotes-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
