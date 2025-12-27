@@ -1,4 +1,4 @@
-export const BASE_API_URL = process.env.API_URL || 'https://api.voicenotes.com/api/integrations/obsidian-sync';
+export const BASE_API_URL = 'https://api.voicenotes.com/api/integrations/obsidian-sync';
 
 export const API_ROUTES = {
   GET_USER: '/user/info',
