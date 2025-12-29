@@ -8,9 +8,6 @@ Twitter (X) instructions below) and we do not save anything but the username in 
 Through the plugin settings one can customize the sync directory and frequency, download the audio file used in the
 transcript and any AI generated summaries or actions become sections in the note text.
 
-### Signup
-You can signup using my referral link if you'd like: [VoiceNotes.com Signup with Referral](https://voicenotes.com/?via=andrew-lombardi).
-
 ### Features
 - Automatically sync data based on configurable minutes from VoiceNotes.com
   - Includes any AI generated summaries or actions
@@ -21,10 +18,17 @@ You can signup using my referral link if you'd like: [VoiceNotes.com Signup with
 - Optional mode to delete synced notes from the voicenotes.com server
   - Destructive action which requires double opt-in toggles
 
+### Installation
+The VoiceNotes.com Sync Plugin is available in the Obsidian Community Plugins area.
+
+1. Turn off restricted mode if it's on
+2. Click 'Browse' under Community pllugins and search for "Voicenotes"
+3. Install and enable the plugin
+
 ### Login via Apple, Google, Twitter (X)
 Steps to find the access token.
 
-1. Open up voicenotes.com in a web browser
+1. Open up https://voicenotes.com in a web browser
 2. After logging in navigate to Profile
 3. Click on Integrations & Automations
 4. Select Obsidian
@@ -37,28 +41,5 @@ https://voicenotes.com/app#settings
 1. Enter the token into the "Auth Token" field in the plugin
 2. Click Connect
 
-
-### Installation
-The VoiceNotes.com Sync Plugin is available in the Obsidian Community Plugins area.
-
-1. Turn off restricted mode if it's on
-2. Click 'Browse' under Community pllugins and search for "Voicenotes"
-3. Install and enable the plugin
-
-### Manual Installation
-Two methods and the first one is easier:
-
-#### Method 1
-- Enable community plugins and install Obsidian42 - BRAT
-- Go to settings and under Beta Plugin List click "Add Beta plugin" and type mysticcoders/voicenotes-sync
-
-#### Method 2
-- Create an `voicenotes-sync` folder under `.obsidian/plugins` in your vault. Add the
-  `main.js`, `manifest.json`, and the `styles.css` files from the
-  [latest release](https://github.com/voicenotes-community/voicenotes-sync/releases) to the folder.
-
-## Say Thanks 🙏
-
-If you like this plugin and would like to buy me a coffee, you can!
-
-[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-violet.png" alt="BuyMeACoffee" width="100">](https://www.buymeacoffee.com/andrewlombardi)
+## Credits & Acknowledgments
+This project was originally conceived, created, and maintained by [Andrew Lombardi](https://mysticcoders.com). We are grateful to Andrew for his work in building the foundations of this tool and for his generosity in transferring the project to the official Voicenotes team to ensure its continued growth.
