@@ -58,9 +58,16 @@ export default class VoiceNotesApi {
   }
 
   /**
-   * Makes an authenticated request with consistent error handling
+   * Sleep utility for rate limit backoff
    */
-  private async makeAuthenticatedRequest(endpoint: string, options: Partial<RequestInit> = {}): Promise<any> {
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Makes an authenticated request with consistent error handling and rate limit retry logic
+   */
+  private async makeAuthenticatedRequest(endpoint: string, options: Partial<RequestInit> = {}, retryCount = 0): Promise<any> {
     if (!this.hasValidToken()) {
       throw new Error('No valid authentication token');
     }
@@ -107,6 +114,47 @@ export default class VoiceNotesApi {
         status: res.status,
         message: message || 'Bad Request',
       };
+    }
+
+    // Handle Laravel rate limiting (429 Too Many Requests)
+    if (res.status === 429) {
+      const maxRetries = 3;
+
+      if (retryCount >= maxRetries) {
+        throw {
+          status: res.status,
+          message: 'Rate limit exceeded. Please try again later.',
+        };
+      }
+
+      // Check for Retry-After header (Laravel provides this)
+      const retryAfter = res.headers.get('Retry-After');
+      let waitTime: number;
+
+      if (retryAfter) {
+        // Retry-After can be in seconds or an HTTP date
+        const retryAfterNum = parseInt(retryAfter, 10);
+        if (!isNaN(retryAfterNum)) {
+          // It's in seconds
+          waitTime = retryAfterNum * 1000;
+        } else {
+          // It's an HTTP date, calculate difference
+          const retryDate = new Date(retryAfter);
+          waitTime = Math.max(0, retryDate.getTime() - Date.now());
+        }
+      } else {
+        // Exponential backoff: 2^retryCount seconds
+        waitTime = Math.pow(2, retryCount) * 1000;
+      }
+
+      // Cap wait time at 60 seconds
+      waitTime = Math.min(waitTime, 60000);
+
+      console.log(`Rate limited. Waiting ${waitTime / 1000} seconds before retry ${retryCount + 1}/${maxRetries}...`);
+      new Notice(`Rate limited. Retrying in ${Math.ceil(waitTime / 1000)} seconds...`);
+
+      await this.sleep(waitTime);
+      return this.makeAuthenticatedRequest(endpoint, options, retryCount + 1);
     }
 
     throw {

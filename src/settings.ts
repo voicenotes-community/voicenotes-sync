@@ -167,9 +167,9 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const options: Record<string, string> = {
           '60': 'Every 1 hour',
-          '180': 'Every 3 hour',
-          '360': 'Every 6 hour',
-          '720': 'Every 12 hour',
+          '180': 'Every 3 hours',
+          '360': 'Every 6 hours',
+          '720': 'Every 12 hours',
           '1440': 'Every day',
         };
 

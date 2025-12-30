@@ -298,21 +298,26 @@ export default class VoiceNotesPlugin extends Plugin {
       }
     } catch (error) {
       console.error(error);
-      if (Object.prototype.hasOwnProperty.call(error, 'status') !== 'undefined') {
+      if (Object.prototype.hasOwnProperty.call(error, 'status')) {
         console.error(error.status);
-        if (Object.prototype.hasOwnProperty.call(error, 'text') !== 'undefined') {
+        if (Object.prototype.hasOwnProperty.call(error, 'text')) {
           console.error(error.text);
         }
-        if (Object.prototype.hasOwnProperty.call(error, 'json') !== 'undefined') {
+        if (Object.prototype.hasOwnProperty.call(error, 'json')) {
           console.error(error.json);
         }
-        if (Object.prototype.hasOwnProperty.call(error, 'headers') !== 'undefined') {
+        if (Object.prototype.hasOwnProperty.call(error, 'headers')) {
           console.error(error.headers);
         }
 
-        this.settings.token = undefined;
-        await this.saveSettings();
-        new Notice(`Login token was invalid, please try logging in again.`);
+        // Only clear token if it's an authentication error (401)
+        if (error.status === 401) {
+          this.settings.token = undefined;
+          await this.saveSettings();
+          new Notice(`Login token was invalid, please try logging in again.`);
+        } else {
+          new Notice(`Error occurred syncing some notes to this vault.`);
+        }
       } else {
         new Notice(`Error occurred syncing some notes to this vault.`);
       }
@@ -372,10 +377,15 @@ export default class VoiceNotesPlugin extends Plugin {
       );
     } catch (error) {
       console.error(error);
-      if (Object.prototype.hasOwnProperty.call(error, 'status') !== 'undefined') {
-        this.settings.token = undefined;
-        await this.saveSettings();
-        new Notice(`Login token was invalid, please try logging in again.`);
+      if (Object.prototype.hasOwnProperty.call(error, 'status')) {
+        // Only clear token if it's an authentication error (401)
+        if (error.status === 401) {
+          this.settings.token = undefined;
+          await this.saveSettings();
+          new Notice(`Login token was invalid, please try logging in again.`);
+        } else {
+          new Notice(`Error occurred syncing some notes to this vault.`);
+        }
       } else {
         new Notice(`Error occurred syncing some notes to this vault.`);
       }
