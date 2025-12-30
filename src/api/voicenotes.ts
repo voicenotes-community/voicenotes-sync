@@ -181,8 +181,7 @@ export default class VoiceNotesApi {
   async downloadFile(fs: DataAdapter, url: string, outputLocationPath: string): Promise<void> {
     try {
       const response = await requestUrl({ url });
-      const buffer = Buffer.from(response.arrayBuffer);
-      await fs.writeBinary(outputLocationPath, buffer);
+      await fs.writeBinary(outputLocationPath, response.arrayBuffer);
     } catch (error) {
       console.error('Failed to download file:', error);
       throw error;
