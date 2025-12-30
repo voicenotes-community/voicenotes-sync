@@ -15,6 +15,6 @@ export class RecordingUtility {
   sanitizedTitle(title: string, created_at: string): string {
     const date = DateTimeHelper.formatDate(created_at, this.plugin.settings.filenameDateFormat);
     const generatedTitle = this.plugin.settings.filenameTemplate.replace('{{date}}', date).replace('{{title}}', title);
-    return sanitize(generatedTitle);
+    return sanitize(generatedTitle).trim();
   }
 }

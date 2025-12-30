@@ -1,10 +1,10 @@
 {
 	"id": "voicenotes-sync",
 	"name": "Voicenotes Sync",
-	"version": "1.0.2",
+	"version": "1.0.8",
 	"minAppVersion": "1.5.12",
 	"description": "Synchronize your notes from Voicenotes.com",
-	"author": "Andrew Lombardi",
-	"authorUrl": "https://mysticcoders.com",
+	"author": "Voicenotes",
+	"authorUrl": "https://voicenotes.com",
 	"isDesktopOnly": false
 }
