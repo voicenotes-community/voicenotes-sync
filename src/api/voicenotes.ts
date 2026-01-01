@@ -82,6 +82,7 @@ export default class VoiceNotesApi {
     const fetchOptions: RequestInit = {
       method: options.method || 'GET',
       headers,
+      body: options.body,
     };
 
     const res = await fetch(url, fetchOptions);
