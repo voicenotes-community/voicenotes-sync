@@ -1,6 +1,4 @@
 ## Voicenotes Sync
-ANNOUNCEMENT: I am excited to announce that the Voicenotes Sync plugin will be folded into the official Voicenotes Community organization. We'll have some exciting updates and improvements that we'll be working on together with the Voicenotes core team (hint: including a long awaited fix for the logout issues many of you have experienced).
-
 This plugin offers the ability to sync down your thoughts and ideas from Voicenotes web & mobile apps.
 
 Through the plugin settings you can customize the sync directory and frequency, download the audio file used in the transcript and any AI generated summaries or actions become sections in the note text.
@@ -23,12 +21,12 @@ The VoiceNotes Sync Plugin is available in the Obsidian Community Plugins area.
 3. Install and enable the plugin
 
 ### Connect your account
-Steps to find the access token.
+To connect your Voicenotes account to Obsidian, you'll need to retrieve your access token:
 
-1. Log into your account in voicenotes.com in a browser.
-2. Go to Profile > Integrations & Automations > [Obsidian](https://voicenotes.com/app#settings)
-3. Copy the token
-4. Paste it in Obsidian > Settings > Voicenotes sync and tap on Connect
+1. Open your browser and log into your account at [voicenotes.com](https://voicenotes.com)
+2. Navigate to your [Obsidian integration settings](https://voicenotes.com/app?obsidian=true#settings) (Profile > Integrations & Automations > Obsidian)
+3. Copy the access token displayed on the page
+4. In Obsidian, go to Settings > Voicenotes Sync, paste the token, and click Connect
 
 ## Credits & Acknowledgments
 This project was originally conceived, created, and maintained by [Andrew Lombardi](https://mysticcoders.com). We are grateful to Andrew for his work in building the foundations of this tool and for his generosity in transferring the project to the official Voicenotes team to ensure its continued growth.
