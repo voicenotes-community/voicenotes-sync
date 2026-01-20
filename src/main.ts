@@ -172,7 +172,8 @@ export default class VoiceNotesPlugin extends Plugin {
 
         let embeddedAudioLink = '';
         let audioFilename = '';
-        if (this.settings.downloadAudio) {
+        // ignore for text notes
+        if (this.settings.downloadAudio && recording.duration > 0) {
           const audioPath = normalizePath(`${voiceNotesDir}/audio`);
           if (!(await this.app.vault.adapter.exists(audioPath))) {
             await this.app.vault.createFolder(audioPath);
