@@ -241,6 +241,10 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             const tags = value.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
             await this.setSetting('excludeTags', tags);
+            // Reset lastSyncedNoteUpdatedAt when include tags change so old notes with new tags can be synced
+            if (this.getSetting('tagFilterMode') === 'include') {
+              await this.setSetting('lastSyncedNoteUpdatedAt', null);
+            }
           })
       );
   }

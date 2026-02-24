@@ -367,12 +367,6 @@ export default class VoiceNotesPlugin extends Plugin {
         await this.saveSettings();
       }
 
-      // Clear deleted recording IDs after successful sync (they've been sent to the server)
-      if (this.settings.deletedLocalRecordingIds?.length) {
-        this.settings.deletedLocalRecordingIds = [];
-        await this.saveSettings();
-      }
-
       new Notice(
         `Voicenotes Sync complete. ${unsyncedCount.count ? unsyncedCount.count + ' recordings were not synced due to excluded tags.' : ''} `
       );
