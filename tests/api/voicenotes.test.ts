@@ -197,10 +197,17 @@ describe('VoiceNotesApi', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         `${BASE_API_URL}${API_ROUTES.GET_RECORDINGS}`,
         expect.objectContaining({
-          method: 'GET',
+          method: 'POST',
+          body: JSON.stringify({
+            obsidian_deleted_recording_ids: [],
+            last_synced_note_updated_at: undefined,
+            filter_tags: [],
+            tag_filter_mode: 'exclude',
+          }),
           headers: expect.objectContaining({
             Authorization: `Bearer valid-token`,
             'X-API-KEY': 'valid-token',
+            'Content-Type': 'application/json',
           }),
         })
       );
@@ -219,8 +226,16 @@ describe('VoiceNotesApi', () => {
       await api.getRecordings();
 
       expect(mockFetch).toHaveBeenCalledWith(
-        `${BASE_API_URL}${API_ROUTES.GET_RECORDINGS}?last_synced_note_updated_at=${encodeURIComponent(timestamp)}`,
-        expect.any(Object)
+        `${BASE_API_URL}${API_ROUTES.GET_RECORDINGS}`,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            obsidian_deleted_recording_ids: [],
+            last_synced_note_updated_at: timestamp,
+            filter_tags: [],
+            tag_filter_mode: 'exclude',
+          }),
+        })
       );
     });
 
@@ -377,7 +392,7 @@ describe('VoiceNotesApi', () => {
       expect(mockRequestUrl).toHaveBeenCalledWith({
         url: 'https://example.com/file.mp3',
       });
-      expect(mockFs.writeBinary).toHaveBeenCalledWith('/path/to/output.mp3', expect.any(Buffer));
+      expect(mockFs.writeBinary).toHaveBeenCalledWith('/path/to/output.mp3', mockArrayBuffer);
     });
 
     it('should throw error on download failure', async () => {
@@ -413,10 +428,11 @@ describe('VoiceNotesApi', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         paginationUrl,
         expect.objectContaining({
-          method: 'GET',
+          method: 'POST',
           headers: expect.objectContaining({
             Authorization: `Bearer valid-token`,
             'X-API-KEY': 'valid-token',
+            'Content-Type': 'application/json',
           }),
         })
       );
