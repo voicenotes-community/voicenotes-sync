@@ -29,9 +29,9 @@ Notes:
 Example: frontmatter template to store topics as a YAML list
 ```jinja2
 {% if topics %}
-voicenotes_topics:
-{% for sujet in topics %}
-  - "{{ sujet }}"
+topics:
+{% for topic in topics %}
+  - "{{ topic }}"
 {% endfor %}
 {% endif %}
 ```
