@@ -15,7 +15,6 @@ export default class VoiceNotesPlugin extends Plugin {
   vnApi: VoiceNotesApi;
   fs: DataAdapter;
   syncedRecording: Pick<VoiceNote, 'recording_id' | 'updated_at'>[] = [];
-  deletedLocalRecordings: Pick<VoiceNote, 'recording_id' | 'updated_at'>[] = [];
   syncIntervalId: NodeJS.Timeout | null = null;
   recordingUtility: RecordingUtility;
 
@@ -42,10 +41,10 @@ export default class VoiceNotesPlugin extends Plugin {
             (r) => r.recording_id !== prevCache.frontmatter?.recording_id
           );
 
-          this.deletedLocalRecordings.push({
-            recording_id: prevCache.frontmatter?.recording_id,
-            updated_at: prevCache.frontmatter?.updated_at,
-          });
+          if (!this.settings.deletedLocalRecordingIds) {
+            this.settings.deletedLocalRecordingIds = [];
+          }
+          this.settings.deletedLocalRecordingIds.push(prevCache.frontmatter?.recording_id);
 
           this.settings.lastSyncedNoteUpdatedAt = this.syncedRecording.length > 0
             ? RecordingUtility.getLatestNote(this.syncedRecording)?.updated_at
@@ -55,16 +54,17 @@ export default class VoiceNotesPlugin extends Plugin {
       })
     );
 
-    // Timeout to give the app time to load
-    setTimeout(async () => {
-      await this.sync();
-    }, 1000);
+    // Defer initial sync until layout is ready (faster plugin load)
+    this.app.workspace.onLayoutReady(() => {
+      // Only sync if we have a token and automatic sync is enabled
+      if (this.settings.token && this.settings.automaticSync) {
+        this.sync();
+      }
+    });
   }
 
   onunload() {
     this.syncedRecording = [];
-    this.deletedLocalRecordings = [];
-    this.settings.lastSyncedNoteUpdatedAt = null;
     this.clearAutoSync();
   }
 
@@ -140,15 +140,6 @@ export default class VoiceNotesPlugin extends Plugin {
         for (const subnote of recording.subnotes) {
           await this.processNote(subnote, voiceNotesDir, true, title, unsyncedCount);
         }
-      }
-
-      // Check if the recording contains any excluded tags
-      if (
-        recording.tags &&
-        recording.tags.some((tag: { name: string }) => this.settings.excludeTags.includes(tag.name))
-      ) {
-        unsyncedCount.count++;
-        return;
       }
 
       // Check if the note already exists
@@ -332,6 +323,9 @@ export default class VoiceNotesPlugin extends Plugin {
       this.vnApi = new VoiceNotesApi({
         token: this.settings.token,
         lastSyncedNoteUpdatedAt: this.settings.lastSyncedNoteUpdatedAt,
+        deletedLocalRecordingIds: this.settings.deletedLocalRecordingIds ?? [],
+        filterTags: this.settings.excludeTags,
+        tagFilterMode: this.settings.tagFilterMode,
       });
 
       const voiceNotesDir = normalizePath(this.settings.syncDirectory);
@@ -352,6 +346,7 @@ export default class VoiceNotesPlugin extends Plugin {
         let nextPage = recordings.links.next;
 
         do {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
           const moreRecordings = await this.vnApi.getRecordingsFromLink(nextPage);
           recordings.data.push(...moreRecordings.data);
           nextPage = moreRecordings.links.next;

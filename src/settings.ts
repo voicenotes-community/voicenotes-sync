@@ -26,8 +26,15 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
     }
 
     this.vnApi.setToken(this.getSetting('token')!);
-    const userInfo = await this.vnApi.getUserInfo();
-    await this.renderUserSection(containerEl, userInfo);
+    // Use cached user info to avoid API call on every settings open
+    let userInfo = this.getSetting('cachedUserInfo');
+    if (!userInfo) {
+      userInfo = await this.vnApi.getUserInfo();
+      if (userInfo) {
+        await this.setSetting('cachedUserInfo', userInfo);
+      }
+    }
+    await this.renderUserSection(containerEl, userInfo!);
     await this.renderSyncSettings(containerEl);
     await this.renderContentSettings(containerEl);
     await this.renderTemplateSettings(containerEl);
@@ -210,18 +217,32 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
           .onChange(this.createTextInputHandler('syncDirectory'))
       );
 
+    const isIncludeMode = this.getSetting('tagFilterMode') === 'include';
+
     new Setting(containerEl)
-      .setName('Exclude Tags')
-      .setDesc('Comma-separated list of tags to exclude from syncing')
+      .setName('Tag Filter')
+      .setDesc(isIncludeMode
+        ? 'Only sync notes with these tags (comma-separated)'
+        : 'Skip notes with these tags (comma-separated)')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('exclude', 'Exclude')
+          .addOption('include', 'Include')
+          .setValue(this.getSetting('tagFilterMode') ?? 'exclude')
+          .onChange(async (value: 'include' | 'exclude') => {
+            await this.setSetting('tagFilterMode', value);
+            await this.display();
+          })
+      )
       .addText((text) =>
         text
-          .setPlaceholder('archive, trash')
+          .setPlaceholder(isIncludeMode ? 'work, important' : 'archive, trash')
           .setValue((this.getSetting('excludeTags') ?? []).join(', '))
           .onChange(async (value) => {
-            await this.setSetting(
-              'excludeTags',
-              value.split(',').map((t) => t.trim())
-            );
+            const tags = value.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
+            await this.setSetting('excludeTags', tags);
+            // Reset lastSyncedNoteUpdatedAt when tags change so filtered notes can be re-evaluated
+            await this.setSetting('lastSyncedNoteUpdatedAt', null);
           })
       );
   }
@@ -366,6 +387,8 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
     const response = await this.vnApi.getUserInfo();
 
     if (response) {
+      // Cache user info on successful login
+      await this.setSetting('cachedUserInfo', response);
       await this.plugin.saveSettings();
       await this.display();
       this.plugin.setupAutoSync();
@@ -379,6 +402,8 @@ export class VoiceNotesSettingTab extends PluginSettingTab {
     new Notice('Successfully logged out.');
     await this.setSetting('token', null);
     await this.setSetting('lastSyncedNoteUpdatedAt', null);
+    await this.setSetting('cachedUserInfo', null);
+    await this.setSetting('deletedLocalRecordingIds', []);
     await this.display();
   }
 

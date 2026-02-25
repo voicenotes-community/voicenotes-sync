@@ -17,10 +17,13 @@ export interface VoiceNotesPluginSettings {
   noteTemplate: string;
   filenameTemplate: string;
   excludeTags: string[];
+  tagFilterMode: 'include' | 'exclude';
   dateFormat: string;
   useCustomChangedAtProperty: boolean;
   customChangedAtProperty: string;
   lastSyncedNoteUpdatedAt?: string;
+  cachedUserInfo?: User | null;
+  deletedLocalRecordingIds?: string[];
 }
 
 export interface User {
