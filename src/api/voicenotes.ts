@@ -87,22 +87,27 @@ export default class VoiceNotesApi {
     }
 
     const url = this.buildUrl(endpoint);
-    const headers = {
-      ...options.headers,
+    const headers: Record<string, string> = {
       Authorization: `Bearer ${this.token}`,
       'X-API-KEY': `${this.token}`,
     };
 
-    const fetchOptions: RequestInit = {
-      method: options.method || 'GET',
+    // Merge in any additional headers from options
+    if (options.headers) {
+      const optHeaders = options.headers as Record<string, string>;
+      Object.assign(headers, optHeaders);
+    }
+
+    const res = await requestUrl({
+      url,
+      method: (options.method as string) || 'GET',
       headers,
-      body: options.body,
-    };
+      body: options.body as string | undefined,
+      throw: false,
+    });
 
-    const res = await fetch(url, fetchOptions);
-
-    if (res.ok) {
-      return await res.json();
+    if (res.status >= 200 && res.status < 300) {
+      return res.json;
     }
 
     if (res.status === 401) {
@@ -121,7 +126,7 @@ export default class VoiceNotesApi {
     }
 
     if (res.status === 400) {
-      const errorData = await res.json();
+      const errorData = res.json;
       const message = errorData.message || 'Bad Request';
       new Notice(message || 'Bad Request');
 
@@ -143,20 +148,14 @@ export default class VoiceNotesApi {
       }
 
       // Check for Retry-After header (Laravel provides this)
-      const retryAfter = res.headers.get('Retry-After');
+      const retryAfter = res.headers['retry-after'];
       let waitTime: number;
 
       if (retryAfter) {
-        // Retry-After can be in seconds or an HTTP date
-        const retryAfterNum = parseInt(retryAfter, 10);
-        if (!isNaN(retryAfterNum)) {
-          // It's in seconds
-          waitTime = retryAfterNum * 1000;
-        } else {
-          // It's an HTTP date, calculate difference
-          const retryDate = new Date(retryAfter);
-          waitTime = Math.max(0, retryDate.getTime() - Date.now());
-        }
+        const parsed = parseInt(retryAfter, 10) + 1;
+        console.log(`Rate limited. Retry-After header: ${retryAfter}s`);
+        // Use server value but fall back to exponential backoff if 0 or invalid
+        waitTime = parsed > 0 ? parsed * 1000 : Math.pow(2, retryCount) * 1000;
       } else {
         // Exponential backoff: 2^retryCount seconds
         waitTime = Math.pow(2, retryCount) * 1000;

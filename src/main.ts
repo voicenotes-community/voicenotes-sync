@@ -145,10 +145,10 @@ export default class VoiceNotesPlugin extends Plugin {
       // Check if the note already exists
       const noteExists = await this.app.vault.adapter.exists(recordingPath);
 
-      // If the note doesn't exist, or if it's a sub-note, it's treated as follows
+      // If the note doesn't exist, or if it's a sub-note, process it
       if (!noteExists || isSubnote) {
         // Prepare data for the template
-        const creationTypes = ['summary', 'points', 'tidy', 'todo', 'tweet', 'blog', 'email', 'custom'];
+        const creationTypes = ['summary', 'points', 'tidy', 'todo', 'tweet', 'blog', 'email', 'custom', 'team-summary'];
         const creations = Object.fromEntries(
           creationTypes.map((type) => [
             type,
@@ -159,7 +159,7 @@ export default class VoiceNotesPlugin extends Plugin {
         const { transcript } = recording;
 
         // Destructure creations object to get individual variables if needed
-        const { summary, points, tidy, todo, tweet, blog, email, custom } = creations;
+        const { summary, points, tidy, todo, tweet, blog, email, custom, 'team-summary': teamSummary } = creations;
 
         let embeddedAudioLink = '';
         let audioFilename = '';
@@ -171,8 +171,9 @@ export default class VoiceNotesPlugin extends Plugin {
           }
           const outputLocationPath = normalizePath(`${audioPath}/${recording.recording_id}.mp3`);
           if (!(await this.app.vault.adapter.exists(outputLocationPath))) {
-            const signedUrl = await this.vnApi.getSignedUrl(recording.recording_id);
-            await this.vnApi.downloadFile(this.fs, signedUrl.url, outputLocationPath);
+            if (recording.recording_signed_url) {
+              await this.vnApi.downloadFile(this.fs, recording.recording_signed_url, outputLocationPath);
+            }
           }
           embeddedAudioLink = `![[${recording.recording_id}.mp3]]`;
           audioFilename = `${recording.recording_id}.mp3`;
@@ -180,26 +181,31 @@ export default class VoiceNotesPlugin extends Plugin {
 
         // Handle attachments
         let attachments = '';
+        let myNotes = '';
         if (recording.attachments && recording.attachments.length > 0) {
           const attachmentsPath = normalizePath(`${voiceNotesDir}/attachments`);
           if (!(await this.app.vault.adapter.exists(attachmentsPath))) {
             await this.app.vault.createFolder(attachmentsPath);
           }
-          attachments = (
-            await Promise.all(
-              recording.attachments.map(async (data: VoiceNoteAttachment) => {
-                if (data.type === AttachmentType.LINK) {
-                  return `- ${data.description}`;
-                } else if (data.type === AttachmentType.IMAGE) {
-                  const filename = FileHelper.getFilenameFromUrl(data.url);
-                  const attachmentPath = normalizePath(`${attachmentsPath}/${filename}`);
+          const attachmentResults = await Promise.all(
+            recording.attachments.map(async (data: VoiceNoteAttachment) => {
+              if (data.type === AttachmentType.TEXT) {
+                return { type: 'note', value: `${data.description}` };
+              } else if (data.type === AttachmentType.LINK) {
+                return { type: 'attachment', value: `- ${data.description}` };
+              } else if (data.type === AttachmentType.IMAGE) {
+                const filename = FileHelper.getFilenameFromUrl(data.url);
+                const attachmentPath = normalizePath(`${attachmentsPath}/${filename}`);
+                if (!(await this.app.vault.adapter.exists(attachmentPath))) {
                   await this.vnApi.downloadFile(this.fs, data.url, attachmentPath);
-                  return `- ![[${filename}]]`;
                 }
-                return ''; // Return empty string for unknown attachment types
-              })
-            )
-          ).join('\n');
+                return { type: 'attachment', value: `- ![[${filename}]]` };
+              }
+              return { type: 'attachment', value: '' };
+            })
+          );
+          attachments = attachmentResults.filter(r => r.type === 'attachment' && r.value).map(r => r.value).join('\n');
+          myNotes = attachmentResults.filter(r => r.type === 'note' && r.value).map(r => r.value).join('\n');
         }
 
         // Prepare context for Jinja template
@@ -232,6 +238,7 @@ export default class VoiceNotesPlugin extends Plugin {
           blog: blog ? blog.markdown_content : null,
           email: email ? email.markdown_content : null,
           custom: custom ? custom.markdown_content : null,
+          team_summary: teamSummary ? teamSummary.markdown_content : null,
           tags: formattedTags,
           related_notes:
             recording.related_notes && recording.related_notes.length > 0
@@ -249,6 +256,7 @@ export default class VoiceNotesPlugin extends Plugin {
                   .join('\n')
               : null,
           attachments: attachments,
+          my_notes: myNotes,
           parent_note: isSubnote ? `[[${parentTitle}]]` : null,
         };
 
@@ -266,8 +274,9 @@ export default class VoiceNotesPlugin extends Plugin {
 
         note = metadata + note;
 
-        // Create or update note
-        if (noteExists) {
+        // Create or update note — re-check existence since another recording
+        // in the same sync batch may have created a file with the same title
+        if (await this.app.vault.adapter.exists(recordingPath)) {
           await this.app.vault.modify(this.app.vault.getFileByPath(recordingPath) as TFile, note);
         } else {
           await this.app.vault.create(recordingPath, note);

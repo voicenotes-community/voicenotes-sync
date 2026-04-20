@@ -66,6 +66,7 @@ export interface VoiceNote {
   creations: VoiceNoteCreation[];
   subnotes: VoiceNote[];
   attachments: VoiceNoteAttachment[];
+  recording_signed_url: string | null;
   created_at: string;
   updated_at: string;
 }
