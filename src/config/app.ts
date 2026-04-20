@@ -25,10 +25,10 @@ Date: {{ date }}
 {{ my_notes }}
 {% endif %}
 
-{% if team_summary %}
+{% if meeting_report %}
 ## Meeting Report
 
-{{ team_summary }}
+{{ meeting_report }}
 {% endif %}
 
 {% if summary %}

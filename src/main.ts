@@ -238,7 +238,7 @@ export default class VoiceNotesPlugin extends Plugin {
           blog: blog ? blog.markdown_content : null,
           email: email ? email.markdown_content : null,
           custom: custom ? custom.markdown_content : null,
-          team_summary: teamSummary ? teamSummary.markdown_content : null,
+          meeting_report: teamSummary ? teamSummary.markdown_content : null,
           tags: formattedTags,
           related_notes:
             recording.related_notes && recording.related_notes.length > 0
