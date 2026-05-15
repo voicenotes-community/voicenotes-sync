@@ -13,6 +13,29 @@ Through the plugin settings you can customize the sync directory and frequency, 
 - Optional mode to delete synced notes from the Voicenotes server
   - Destructive action which requires double opt-in toggles
 
+### Template variables
+The note and frontmatter templates support Jinja-style variables and conditionals.
+
+Available variables:
+`recording_id`, `title`, `date`, `duration`, `created_at`, `updated_at`, `tags`, `topics`, `transcript`,
+`embedded_audio_link`, `audio_filename`, `summary`, `tidy`, `points`, `todo`, `email`, `tweet`, `blog`, `custom`,
+`meeting_report`, `my_notes`, `parent_note`, `related_notes`, `subnotes`, `attachments`.
+
+Notes:
+- `tags` is a space-delimited string of Obsidian-style hashtags (spaces replaced by `-`).
+- `topics` is a raw array of tag/topic names from Voicenotes (no `#`, no formatting). Use it when you want frontmatter
+  lists instead of Obsidian tags.
+
+Example: frontmatter template to store topics as a YAML list
+```jinja2
+{% if topics %}
+topics:
+{% for topic in topics %}
+  - "{{ topic }}"
+{% endfor %}
+{% endif %}
+```
+
 ### Installation
 The VoiceNotes Sync Plugin is available in the Obsidian Community Plugins area.
 

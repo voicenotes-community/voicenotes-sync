@@ -215,11 +215,15 @@ export default class VoiceNotesPlugin extends Plugin {
               .map((data: string) => `- [ ] ${data}${this.settings.todoTag ? ' #' + this.settings.todoTag : ''}`)
               .join('\n')
           : null;
+        const tagNames =
+          recording.tags && recording.tags.length > 0
+            ? recording.tags
+                .map((tag: { name: string }) => (typeof tag.name === 'string' ? tag.name.trim() : ''))
+                .filter((name: string) => name.length > 0)
+            : null;
         // Format tags, replacing spaces with hyphens for multi-word tags
         const formattedTags =
-          recording.tags && recording.tags.length > 0
-            ? recording.tags.map((tag: { name: string }) => `#${tag.name.replace(/\s+/g, '-')}`).join(' ')
-            : null;
+          tagNames && tagNames.length > 0 ? tagNames.map((name: string) => `#${name.replace(/\s+/g, '-')}`).join(' ') : null;
         const context = {
           recording_id: recording.recording_id,
           title: recording.title,
@@ -240,6 +244,7 @@ export default class VoiceNotesPlugin extends Plugin {
           custom: custom ? custom.markdown_content : null,
           meeting_report: teamSummary ? teamSummary.markdown_content : null,
           tags: formattedTags,
+          topics: tagNames,
           related_notes:
             recording.related_notes && recording.related_notes.length > 0
               ? recording.related_notes
