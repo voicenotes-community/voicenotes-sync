@@ -17,14 +17,14 @@ Through the plugin settings you can customize the sync directory and frequency, 
 The note and frontmatter templates support Jinja-style variables and conditionals.
 
 Available variables:
-`recording_id`, `title`, `date`, `duration`, `created_at`, `updated_at`, `tags`, `tag_names`, `topics`, `transcript`,
+`recording_id`, `title`, `date`, `duration`, `created_at`, `updated_at`, `tags`, `topics`, `transcript`,
 `embedded_audio_link`, `audio_filename`, `summary`, `tidy`, `points`, `todo`, `email`, `tweet`, `blog`, `custom`,
 `meeting_report`, `my_notes`, `parent_note`, `related_notes`, `subnotes`, `attachments`.
 
 Notes:
 - `tags` is a space-delimited string of Obsidian-style hashtags (spaces replaced by `-`).
-- `tag_names` and `topics` are raw arrays of tag/topic names from Voicenotes (no `#`, no formatting). Use these when you
-  want frontmatter lists instead of Obsidian tags.
+- `topics` is a raw array of tag/topic names from Voicenotes (no `#`, no formatting). Use it when you want frontmatter
+  lists instead of Obsidian tags.
 
 Example: frontmatter template to store topics as a YAML list
 ```jinja2
