@@ -352,8 +352,17 @@ export default class VoiceNotesPlugin extends Plugin {
 
         // Recording ID is required so we force it
         const recordingIdTemplate = `recording_id: {{recording_id}}\n`;
+        // Older saved templates used a bare {{tags}} line without the YAML key.
+        const frontmatterTemplate = this.settings.frontmatterTemplate.replace(
+          /^{{\s*tags\s*}}[ \t]*\r?$/gm,
+          'tags: {{tags}}'
+        );
         const renderedFrontmatter = jinja
-          .render(recordingIdTemplate + this.settings.frontmatterTemplate, context)
+          .render(
+            recordingIdTemplate + frontmatterTemplate,
+            { ...context, tags: JSON.stringify((tagNames ?? []).map((name) => name.replace(/\s+/g, '-'))) },
+            { autoEscape: false }
+          )
           .replace(/\n{3,}/g, '\n\n');
 
         const metadata = `---\n${renderedFrontmatter}\n---\n`;

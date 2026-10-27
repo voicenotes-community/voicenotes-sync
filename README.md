@@ -22,9 +22,14 @@ Available variables:
 `meeting_report`, `my_notes`, `parent_note`, `related_notes`, `subnotes`, `attachments`.
 
 Notes:
-- `tags` is a space-delimited string of Obsidian-style hashtags (spaces replaced by `-`).
+- In note templates, `tags` is a space-delimited string of Obsidian-style hashtags (spaces replaced by `-`).
+- In frontmatter templates, use `tags: {{tags}}` to produce a YAML array, for example
+  `tags: ["tag1","tag2"]`. Names have no `#`, spaces become `-`, and notes without tags use `tags: []`.
+  The bare `{{tags}}` line in older default templates is also supported.
 - `topics` is a raw array of tag/topic names from Voicenotes (no `#`, no formatting). Use it when you want frontmatter
   lists instead of Obsidian tags.
+
+Existing top-level notes keep their frontmatter during sync, so their tags are not automatically migrated.
 
 Example: frontmatter template to store topics as a YAML list
 ```jinja2
